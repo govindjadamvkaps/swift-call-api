@@ -13,8 +13,14 @@ app.use(cors());
 app.get("/", (req, res) => {
   return res
     .status(200)
-    .json({ success: true, message: "Socket API is running with new code" });
+    .json({ success: true, message: "Socket API is running" });
 });
+
+app.get("/api/socket", (req, res) => {
+  return res
+    .status(200)
+    .json({ success: true, message: "Socket API is running with new code added" });
+})
 
 const server = createServer(app);
 const io = new Server(server, {
@@ -99,6 +105,9 @@ io.on("connection", (socket) => {
 
   // Handles user leaving the room and adds the room to the waiting queue
   socket.on("onLeave", (roomName) => {
+    if(!roomName){
+      roomName = socket_rooms[user_token];
+    }
     console.log("onLeave", roomName);
     socket.leave(roomName);
     active_sessions = active_sessions.filter((room) => room !== roomName);
@@ -107,7 +116,7 @@ io.on("connection", (socket) => {
 
     // Only add the room back to waiting queue if it's empty
     if (active_sessions_users[roomName]?.length === 0) {
-      waiting_queue.push(roomName);
+      if(!waiting_queue.includes(roomName)) waiting_queue.push(roomName);
     }
 
     updateRoomState();
@@ -164,7 +173,7 @@ io.on("connection", (socket) => {
 
     // Only add the room back to waiting queue if it's empty
     if (active_sessions_users[roomName]?.length === 0) {
-      waiting_queue.push(roomName);
+      if(!waiting_queue.includes(roomName)) waiting_queue.push(roomName);
     }
 
     updateRoomState();
