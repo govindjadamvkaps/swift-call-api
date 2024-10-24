@@ -16,6 +16,12 @@ app.get("/", (req, res) => {
     .json({ success: true, message: "Socket API is running" });
 });
 
+app.get("/api/socket", (req, res) => {
+  return res
+    .status(200)
+    .json({ success: true, message: "Socket API is running with new code" });
+});
+
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
