@@ -169,7 +169,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("leave_on", (roomname) => {
-    if (active_sessions_users?.length === 0) {
+    console.log(
+      "active_sessions_users",
+      Object.keys(active_sessions_users).length
+    );
+    if (Object.keys(active_sessions_users).length === 0) {
       waiting_queue = [];
     }
   });
