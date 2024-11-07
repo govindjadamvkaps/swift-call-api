@@ -19,7 +19,7 @@ app.get("/", (req, res) => {
 app.get("/api/socket", (req, res) => {
   return res
     .status(200)
-    .json({ success: true, message: "Socket API is running with new code" });
+    .json({ success: true, message: "Socket API is running with new code testing" });
 });
 
 const server = createServer(app);
@@ -176,7 +176,8 @@ io.on("connection", (socket) => {
     if (Object.keys(active_sessions_users).length === 0) {
       waiting_queue = [];
     }
-    socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
+    updateRoomState()
+    // socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
   });
 
   socket.on("disconnect", () => {
