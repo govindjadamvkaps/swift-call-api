@@ -17,9 +17,10 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/socket", (req, res) => {
-  return res
-    .status(200)
-    .json({ success: true, message: "Socket API is running with new code testing" });
+  return res.status(200).json({
+    success: true,
+    message: "Socket API is running with new code testing",
+  });
 });
 
 const server = createServer(app);
@@ -52,12 +53,12 @@ io.on("connection", (socket) => {
 
     // Create a new room if no such room exists
     if (room === undefined || userskip) {
-      console.log("room does not exist", roomName, waiting_queue);
+      // console.log("room does not exist", roomName, waiting_queue);
       socket.join(roomName);
       socket.emit("created");
       messages[roomName] = [];
       if (!waiting_queue.includes(roomName) && roomName) {
-        console.log("pushing room to waiting queue", roomName);
+        // console.log("pushing room to waiting queue", roomName);
         waiting_queue.push(roomName);
       }
       active_sessions_users[roomName] = [user_token];
@@ -65,7 +66,7 @@ io.on("connection", (socket) => {
     }
     // If there is only one person in the room
     else if (room.size === 1) {
-      console.log("room size is 1", roomName);
+      // console.log("room size is 1", roomName);
       socket.join(roomName);
       socket.emit("joined");
       waiting_queue = waiting_queue.filter((room) => room !== roomName);
@@ -98,7 +99,7 @@ io.on("connection", (socket) => {
 
   // Triggered when server gets an answer from a peer in the room
   socket.on("answer", (answer, roomName) => {
-    console.log("answer coming....");
+    // console.log("answer coming....");
     socket.broadcast.to(roomName).emit("answer", answer);
   });
 
@@ -107,7 +108,7 @@ io.on("connection", (socket) => {
     if (!roomName) {
       roomName = socket_rooms[user_token];
     }
-    console.log("onLeave", roomName);
+    // console.log("onLeave", roomName);
     socket.leave(roomName);
     active_sessions = active_sessions.filter((room) => room !== roomName);
     messages[roomName] = [];
@@ -157,9 +158,9 @@ io.on("connection", (socket) => {
 
   //message send
   socket.on("message_send", (data) => {
-    console.log("message_send", data, Array.isArray(messages[data.roomName]));
+    // console.log("message_send", data, Array.isArray(messages[data.roomName]));
     if (!Array.isArray(messages[data.roomName])) messages[data.roomName] = [];
-    console.log("sender", socket.id, messages);
+    // console.log("sender", socket.id, messages);
     messages[data.roomName].push({
       sender: socket.id,
       message: data.message,
@@ -178,13 +179,20 @@ io.on("connection", (socket) => {
     if (Object.keys(active_sessions_users).length === 0) {
       waiting_queue = [];
     }
-    updateRoomState()
+    updateRoomState();
+    // socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
+  });
+
+  socket.on("end_call", (roomName) => {
+    console.log("end_call", roomName);
+    io.to(roomName).emit("clear_messages");
+    updateRoomState();
     // socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
   });
 
   socket.on("disconnect", () => {
     const roomName = socket_rooms[user_token];
-    console.log("disconnect", socket.id);
+    // console.log("disconnect", socket.id);
     if (!roomName) return;
     socket.leave(roomName);
     active_sessions = active_sessions.filter((room) => room !== roomName);
