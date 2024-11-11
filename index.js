@@ -153,12 +153,12 @@ io.on("connection", (socket) => {
     }
 
     // Filter waiting_queue to remove IDs not in active_sessions_users
-    const new_waiting_queue = waiting_queue.filter((userId) => 
+    waiting_queue = waiting_queue.filter((userId) => 
       Object.keys(active_sessions_users).includes(userId)
     );
-    waiting_queue = new_waiting_queue
-    console.log("waiting Queeeeee skip call",waiting_queue)
-    console.log("active_seesionUser skip calll",active_sessions_users)
+
+    console.log("Updated waiting_queue after skip:", waiting_queue);
+    console.log("Active session users:", active_sessions_users);
 
     updateRoomState();
     socket.leave(roomName);
@@ -199,10 +199,10 @@ io.on("connection", (socket) => {
   socket.on("end_call", (roomName) => {
     io.to(roomName).emit("clear_messages");
     // Filter waiting_queue to remove IDs not in active_sessions_users
-    const new_waiting_queue = waiting_queue.filter((userId) => 
+    waiting_queue = waiting_queue.filter((userId) => 
       Object.keys(active_sessions_users).includes(userId)
     );
-    waiting_queue = new_waiting_queue
+
     console.log("waitingQues end call",waiting_queue)
     console.log("active_seesionUser end calll",active_sessions_users)
     updateRoomState();
@@ -241,10 +241,10 @@ io.on("connection", (socket) => {
 
   // Helper function to update room state
   function updateRoomState() {
-    const new_waiting_queue = waiting_queue.filter((userId) => 
+    waiting_queue = waiting_queue.filter((userId) => 
       Object.keys(active_sessions_users).includes(userId)
     );
-    waiting_queue = new_waiting_queue
+    
     io.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
   }
 });
