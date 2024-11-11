@@ -215,6 +215,9 @@ io.on("connection", (socket) => {
     if (timeOutRef[roomName]) {
       clearTimeout(timeOutRef[roomName]);
     }
+    socket
+      .to(roomName)
+      .emit("leave", { waiting_queue, active_sessions_users, roomName });
   });
 
   // Helper function to update room state
