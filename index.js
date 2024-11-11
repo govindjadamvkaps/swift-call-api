@@ -13,7 +13,7 @@ app.use(cors());
 app.get("/", (req, res) => {
   return res
     .status(200)
-    .json({ success: true, message: "Socket API is running" });
+    .json({ success: true, message: "Socket API is running new code" });
 });
 
 app.get("/api/socket", (req, res) => {
@@ -133,6 +133,8 @@ io.on("connection", (socket) => {
   socket.on("skip", (roomName) => {
     active_sessions = active_sessions.filter((room) => room !== roomName);
     messages[roomName] = [];
+
+    io.to(roomName).emit("clear_messages");
 
     if (!skipped_sessions[user_token]) {
       skipped_sessions[user_token] = [roomName];
