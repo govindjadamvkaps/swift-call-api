@@ -183,8 +183,12 @@ io.on("connection", (socket) => {
     // socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
   });
 
+  socket.on("remove_waiting_users", () => {
+    const newArray = Object.keys(active_sessions_users);
+    waiting_queue = waiting_queue.filter((id) => newArray.includes(id));
+  });
+
   socket.on("end_call", (roomName) => {
-    console.log("end_call", roomName);
     io.to(roomName).emit("clear_messages");
     updateRoomState();
     // socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
