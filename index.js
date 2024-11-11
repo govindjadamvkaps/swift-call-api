@@ -241,6 +241,10 @@ io.on("connection", (socket) => {
 
   // Helper function to update room state
   function updateRoomState() {
+    const new_waiting_queue = waiting_queue.filter((userId) => 
+      Object.keys(active_sessions_users).includes(userId)
+    );
+    waiting_queue = new_waiting_queue
     io.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
   }
 });
