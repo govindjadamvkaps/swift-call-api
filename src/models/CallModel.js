@@ -10,8 +10,8 @@ const callSchema = new mongoose.Schema(
       },
     ],
     timeDuration: {
-      type: Number,
-      default: 0,
+      type: String,
+  
     },
     callCount: {
       type: Number,

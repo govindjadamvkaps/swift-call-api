@@ -9,21 +9,31 @@ import Role from "../models/RoleModel.js";
 export const addUser = async (req, res) => {
   try {
     var newUser;
-    const { ip } = req.body;
+    const { username } = req.body;
     const userRole = await Role.findOne({ role: "USER" });
-    const userExist = await User.findOne({ ip: ip });
+    
+    const userExist = await User.findOne({ username: username });
     if (!userExist) {
       newUser = await new User({
         name: "guest",
-        ip: ip,
+        username: username,
         role: userRole._id,
       });
+      console.log(newUser)
       await newUser.save();
+    }
+    else
+    {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "User name already exist",
+     
+      });
     }
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "User created successfully",
-      data: userExist ? userExist : newUser,
+      data: newUser,
     });
   } catch (error) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -38,9 +48,11 @@ export const addUser = async (req, res) => {
 //@route POST '/api/call/add-call"
 export const addCall = async (req, res) => {
   try {
-    const { ip1, ip2, timeDuration } = req.body;
-    const user1 = await findOrCreateUser(ip1);
-    const user2 = await findOrCreateUser(ip2);
+    const { username1, username2, timeDuration } = req.body;
+    
+    
+    const user1 = await findOrCreateUser(username1);
+    const user2 = await findOrCreateUser(username2);
     if (!user1 || !user2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -93,7 +105,7 @@ export const getCallDetails = async (req, res) => {
   try {
     const search = req.query.search || "";
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 5;
+    const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
     const filterMonth = parseInt(req.query.month, 10);
     const filterYear = parseInt(req.query.year, 10);
@@ -150,7 +162,7 @@ export const getCallDetails = async (req, res) => {
       {
         $facet: {
           metadata: [{ $count: "total" }, { $addFields: { page } }],
-          data: [{ $skip: skip }, { $limit: limit }],
+          data: [{ $skip: skip }, { $limit: 10 }],
         },
       },
     ];

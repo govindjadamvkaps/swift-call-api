@@ -1,5 +1,29 @@
 import { Server } from "socket.io";
 
+const trackCallData = async (username1, username2, duration) => {
+  try {
+    console.log("username1",username1,username2,duration);
+    
+    const response = await fetch(`http://localhost:4000/api/call/add-call`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username1,
+        username2,
+        timeDuration: duration
+      })
+    });
+    
+    const data = await response.json();
+    console.log('Call tracked:', data);
+  } catch (error) {
+    console.error('Error tracking call:', error);
+  }
+};
+
+
 const socketHandler = (server) => {
   const io = new Server(server, {
     cors: {
@@ -21,6 +45,17 @@ const socketHandler = (server) => {
   io.on("connection", (socket) => {
     const user_token = socket.id;
     socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
+
+    //store_peer_ip
+    socket.on("store_peer_ip", ({ roomName, username }) => {
+      if (active_sessions_users[roomName]) {
+        const userIndex = active_sessions_users[roomName].indexOf(socket.id);
+        if (userIndex !== -1) {
+          active_sessions_users[roomName][userIndex] = { id: socket.id, username: username };
+        }
+      }
+    });
+
 
     // Triggered when a peer hits the join room button
     socket.on("join", ({ roomId: roomName, userskip = false }) => {
@@ -108,8 +143,11 @@ const socketHandler = (server) => {
     });
 
     // Handles when a user skips the room
-    socket.on("skip", (roomName) => {
-      active_sessions = active_sessions.filter((room) => room !== roomName);
+    socket.on("skip", async({ roomName, username, callDuration }) => {
+      if(active_sessions_users[roomName]!==undefined)
+      {const [ user2] = active_sessions_users[roomName];
+      await trackCallData(username, user2?.username || "Unknown", callDuration);
+      }active_sessions = active_sessions.filter((room) => room !== roomName);
       messages[roomName] = [];
 
       io.to(roomName).emit("clear_messages");
@@ -165,11 +203,23 @@ const socketHandler = (server) => {
       waiting_queue = waiting_queue.filter((id) => newArray.includes(id));
     });
 
-    socket.on("end_call", (roomName) => {
-      io.to(roomName).emit("clear_messages");
-      updateRoomState();
-      // socket.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
-    });
+    // socket.on("end_call", (roomName) => {
+    //   io.to(roomName).emit("clear_messages");
+    //   updateRoomState();
+      
+    // });
+
+//onEnd Call
+socket.on("end_call", async({ roomName, username, callDuration }) => {
+  if (active_sessions_users[roomName]?.length === 2) {
+    if(active_sessions_users[roomName]!==undefined)
+    {const [user1, user2] = active_sessions_users[roomName];
+   await trackCallData(username, user2?.username || "Unknown", callDuration);
+    }
+  }
+  io.to(roomName).emit("clear_messages");
+  updateRoomState();
+});
 
     socket.on("disconnect", () => {
       const roomName = socket_rooms[user_token];

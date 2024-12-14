@@ -25,43 +25,30 @@ export const registerUser = async (req, res) => {
         .status(StatusCodes.BAD_REQUEST)
         .json({ success: false, message: firstErrorMessage });
     }
-    const { name, email, password, ip } = req.body;
+    const { name, email, password, username } = req.body;
     const isEmailMatch = await User.findOne({ email: email });
     if (isEmailMatch) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "The email address is already registered.",
+        message: "Email address is already registered.",
+      });
+    }
+    const usernameMatched = await User.findOne({ username: username });
+    if (usernameMatched) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Username is already registered.",
       });
     }
     const hashPassword = bcryptjs.hashSync(password, 10);
     const userRole = await Role.findOne({ role: "USER" });
-    const userIp = await User.findOne({ ip: ip });
-    if (userIp) {
-      const userUpdated = await User.findByIdAndUpdate(
-        { _id: userIp?._id },
-        {
-          name,
-          email,
-          password: hashPassword,
-          role: userRole._id,
-        },
-        { new: true }
-      );
-      const token = await userUpdated.generateAuthToken();
-      return res.status(StatusCodes.CREATED).json({
-        success: true,
-        message: "User registered successfully!",
-        data: { user: userUpdated, token: token },
-      });
-    }
-
+  
     const user = new User({
       name,
+      username,
       email,
       password: hashPassword,
       role: userRole._id,
-
-      ip: ip,
     });
 
     const token = await user.generateAuthToken();
