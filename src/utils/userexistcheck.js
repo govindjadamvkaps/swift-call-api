@@ -1,11 +1,11 @@
 import User from "../models/UserModel.js";
 
-export async function findOrCreateUser(ip) {
-  let user = await User.findOne({ ip: ip });
+export async function findOrCreateUser(username) {
+  let user = await User.findOne({ username: username });
   if (!user) {
     user = new User({
       name: "guest",
-      ip: ip,
+      username: username,
     });
     await user.save();
   }
