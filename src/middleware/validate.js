@@ -26,7 +26,7 @@ export const validateSignup = [
     .isLength({ min: 6 })
     .withMessage("Password must be of length greater than 5"),
 
-  check("ip").notEmpty().withMessage("ip is required"),
+  check("username").notEmpty().withMessage("username is required"),
 
   // check('role')
   //   .isMongoId()
