@@ -1,5 +1,15 @@
 import { Server } from "socket.io";
-import { addCall } from "../controllers/callController.js";
+import axios from "axios";
+
+const TraceUserCall = async (username1, username2, callDuration) => {
+  try {
+    await axios.post(`${process.env.API_URL}/api/call/add-call`, {
+      username1,
+      username2,
+      timeDuration: callDuration,
+    });
+  } catch (err) {}
+};
 
 const socketHandler = (server) => {
   const io = new Server(server, {
@@ -18,6 +28,14 @@ const socketHandler = (server) => {
   let active_sessions_users = {};
   let socket_rooms = {};
   let timeOutRef = {};
+
+  // cron.schedule("* * * * * *", () => {
+  //   addActiveCalls(active_sessions_users);
+  // });
+
+  const getCurrentUserFunction = () => {
+    return active_sessions_users;
+  };
 
   io.on("connection", (socket) => {
     const user_token = socket.id;
@@ -125,7 +143,12 @@ const socketHandler = (server) => {
     socket.on("skip", async ({ roomName, username, callDuration }) => {
       if (active_sessions_users[roomName] !== undefined) {
         const [user2] = active_sessions_users[roomName];
-        await addCall(username, user2?.username || "Unknown", callDuration);
+
+        await TraceUserCall(
+          username,
+          user2?.username || "Unknown",
+          callDuration
+        );
       }
       active_sessions = active_sessions.filter((room) => room !== roomName);
       messages[roomName] = [];
@@ -194,7 +217,12 @@ const socketHandler = (server) => {
       if (active_sessions_users[roomName]?.length === 2) {
         if (active_sessions_users[roomName] !== undefined) {
           const [user1, user2] = active_sessions_users[roomName];
-          await addCall(username, user2?.username || "Unknown", callDuration);
+          
+          await TraceUserCall(
+            username,
+            user2?.username || "Unknown",
+            callDuration
+          );
         }
       }
       io.to(roomName).emit("clear_messages");
@@ -236,6 +264,7 @@ const socketHandler = (server) => {
       io.emit("getWaitingRooms", { waiting_queue, active_sessions_users });
     }
   });
+  return getCurrentUserFunction;
 };
 
 export default socketHandler;

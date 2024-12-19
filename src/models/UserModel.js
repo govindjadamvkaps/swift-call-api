@@ -29,6 +29,12 @@ const userSchema = new mongoose.Schema(
       ref: "role",
       required: true,
     },
+    ip: {
+      type: String,
+    },
+    country: {
+      type: String,
+    },
   },
   {
     timestamps: true,

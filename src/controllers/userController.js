@@ -9,6 +9,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { sendForgotMail } from "../utils/email.js";
 import jwt from "jsonwebtoken";
+import geoip from "geoip-country";
+import Call from "../models/CallModel.js";
 // @desc Register a new user
 // @route POST '/api/users/signup'
 // @access Public
@@ -25,7 +27,7 @@ export const registerUser = async (req, res) => {
         .status(StatusCodes.BAD_REQUEST)
         .json({ success: false, message: firstErrorMessage });
     }
-    const { name, email, password, username } = req.body;
+    const { name, email, password, username, ip } = req.body;
     const isEmailMatch = await User.findOne({ email: email });
     if (isEmailMatch) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -42,13 +44,16 @@ export const registerUser = async (req, res) => {
     }
     const hashPassword = bcryptjs.hashSync(password, 10);
     const userRole = await Role.findOne({ role: "USER" });
-  
+    var geo = geoip.lookup(ip);
+   
     const user = new User({
       name,
       username,
       email,
       password: hashPassword,
       role: userRole._id,
+      ip: ip,
+      country: geo?.country,
     });
 
     const token = await user.generateAuthToken();
@@ -134,11 +139,8 @@ export const login = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const search = req.query.search || "";
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const skip = (page - 1) * limit;
-    const filterMonth = parseInt(req.query.month);
-    const filterYear = parseInt(req.query.year);
+    const filterMonth = req.query.month ? parseInt(req.query.month) : null;
+    const filterYear = req.query.year ? parseInt(req.query.year) : null;
 
     const userRole = await Role.findOne({ role: "USER" });
 
@@ -146,11 +148,16 @@ export const getAllUsers = async (req, res) => {
       role: userRole._id,
       isDeleted: false,
       email: { $exists: true, $ne: "" },
-      $or: [
+    };
+
+    // Add search condition if search query is provided
+    if (search) {
+      matchOptions.$or = [
         { name: { $regex: ".*" + search + ".*", $options: "i" } },
         { email: { $regex: ".*" + search + ".*", $options: "i" } },
-      ],
-    };
+      ];
+    }
+
     // Add date filtering if month and year are provided
     if (filterYear || filterMonth) {
       matchOptions.$expr = {
@@ -165,7 +172,7 @@ export const getAllUsers = async (req, res) => {
       };
     }
 
-    const users = User.aggregate([
+    const aggregationPipeline = [
       {
         $match: matchOptions,
       },
@@ -177,14 +184,42 @@ export const getAllUsers = async (req, res) => {
           as: "role",
         },
       },
-    ]);
-    const data = await User.aggregatePaginate(users, { page, limit });
+    ];
 
-    if (!data) {
+    // Check if pagination is required
+    const page = req.query.page ? parseInt(req.query.page) : null;
+    const limit = req.query.limit ? parseInt(req.query.limit) : null;
+
+    let data;
+    if (page && limit) {
+      // If page and limit are provided, use pagination
+      const skip = (page - 1) * limit;
+      data = await User.aggregate(aggregationPipeline).skip(skip).limit(limit);
+
+      const total = await User.countDocuments(matchOptions);
+
+      data = {
+        docs: data,
+        totalDocs: total,
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } else {
+      // If page and limit are not provided, return all users
+      data = await User.aggregate(aggregationPipeline);
+    }
+
+    if (
+      !data ||
+      (Array.isArray(data) && data.length === 0) ||
+      (data.docs && data.docs.length === 0)
+    ) {
       return res
         .status(StatusCodes.NOT_FOUND)
-        .json({ success: false, message: "No users found" });
+        .json({ success: false, data: [] });
     }
+
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Users fetched successfully",
@@ -293,13 +328,27 @@ export const getUserProfile = async (req, res) => {
 };
 
 // @desc Put Update User
-// @route POST '/api/users/update'
+// @route POST '/api/user/update'
 // @access Private: User
 
 export const updateUser = async (req, res) => {
   try {
     const id = req.user._id;
     let updatedData = req.body;
+
+    if (updatedData.email !== req.user.email) {
+      const userFound = await User.findOne({
+        email: updatedData.email,
+        _id: { $ne: id },
+      });
+      if (userFound) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message:
+            "User already exist with this email id please change your email",
+        });
+      }
+    }
     if (req.file) {
       const imagePath = `images/${req.file.filename}`;
       updatedData.avatar = imagePath;
@@ -344,7 +393,7 @@ export const updateUser = async (req, res) => {
 };
 
 //@desc forgot password
-//@route POST "/api/users/forgot-password"
+//@route POST "/api/user/forgot-password"
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -379,7 +428,7 @@ export const forgotPassword = async (req, res) => {
 };
 
 //@desc reset password
-//@route POST "api/users/reset-password"
+//@route POST "api/user/reset-password"
 export const resetPassword = async (req, res) => {
   try {
     const { password, token } = req.body;
@@ -389,6 +438,7 @@ export const resetPassword = async (req, res) => {
         message: "Token and password must be required",
       });
     }
+
     const decode = jwt.verify(token, process.env.SECRET_KEY);
     const user = await User.findById(decode._id);
     if (!user) {
@@ -409,10 +459,121 @@ export const resetPassword = async (req, res) => {
       message: "Reset password successfully.",
     });
   } catch (error) {
+    console.log("error", error.message);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
       error: error.message,
     });
   }
+};
+
+//@desc get dashboard graph details
+//@route GET "api/user/dashboard-graph-details"
+export const dashboardGraphDetails = async (req, res) => {
+  try {
+    const year = req.query.year;
+    if (!year) {
+      return NextResponse.json(
+        { error: "Year parameter is required" },
+        { status: 400 }
+      );
+    }
+    const userRole = await Role.findOne({ role: "USER" });
+    const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+    const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+    const allUsersCount = await User.countDocuments({ role: userRole?._id });
+    const allCallCount = await Call.countDocuments();
+    const userStats = await User.aggregate([
+      {
+        $match: {
+          role: userRole?._id,
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const registeredUsers = await User.aggregate([
+      {
+        $match: {
+          role: userRole?._id,
+          createdAt: { $gte: startDate, $lte: endDate },
+          email: {
+            $exists: true,
+            $ne: "",
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const callStats = await Call.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$createdAt" },
+          count: { $sum: "$callCount" },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const userDataByMonth = new Array(12).fill(0);
+    const callDataByMonth = new Array(12).fill(0);
+    const registerdUserByMonth = new Array(12).fill(0);
+    userStats.forEach((stat) => {
+      userDataByMonth[stat._id - 1] = stat.count;
+    });
+
+    callStats.forEach((stat) => {
+      callDataByMonth[stat._id - 1] = stat.count;
+    });
+    registeredUsers.forEach((stat) => {
+      registerdUserByMonth[stat._id - 1] = stat.count;
+    });
+    const maxValue = Math.max(allUsersCount, allCallCount);
+    return res.status(StatusCodes.OK).json({
+      months,
+      userDataByMonth,
+      callDataByMonth,
+      registerdUserByMonth,
+      maxValue,
+    });
+  } catch (error) {}
 };

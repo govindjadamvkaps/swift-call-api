@@ -11,13 +11,11 @@ const callSchema = new mongoose.Schema(
     ],
     timeDuration: {
       type: String,
-  
     },
     callCount: {
       type: Number,
       default: 1,
     },
-   
   },
   {
     timestamps: true,
