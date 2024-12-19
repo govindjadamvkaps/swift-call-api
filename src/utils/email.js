@@ -2,7 +2,7 @@ import axios from "axios";
 
 export const sendForgotMail = async (email, token) => {
   try {
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?${token}`;
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
     const { BREVO_API, BREVO_EMAIL, BERVO_NAME } = process.env;
     const response = await axios.post(
       BREVO_API,

@@ -3,31 +3,34 @@ import User from "../models/UserModel.js";
 import Call from "../models/CallModel.js";
 import { findOrCreateUser } from "../utils/userexistcheck.js";
 import Role from "../models/RoleModel.js";
-
+import { Server as SocketIOServer } from "socket.io";
+import { getActiveSessions } from "../utils/socketData.js";
+import geoip from "geoip-country";
+var activeUsersCount = 0;
 //@desc create user
 //@route POST '/api/call/add-user"
 export const addUser = async (req, res) => {
   try {
     var newUser;
-    const { username } = req.body;
+    const { username, ip } = req.body;
     const userRole = await Role.findOne({ role: "USER" });
-    
+
     const userExist = await User.findOne({ username: username });
+    var geo = geoip.lookup(ip);
     if (!userExist) {
       newUser = await new User({
         name: "guest",
         username: username,
         role: userRole._id,
+        ip: ip,
+        country: geo?.country,
       });
-      console.log(newUser)
+
       await newUser.save();
-    }
-    else
-    {
+    } else {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: "User name already exist",
-     
       });
     }
     return res.status(StatusCodes.OK).json({
@@ -49,8 +52,6 @@ export const addUser = async (req, res) => {
 export const addCall = async (req, res) => {
   try {
     const { username1, username2, timeDuration } = req.body;
-    
-    
     const user1 = await findOrCreateUser(username1);
     const user2 = await findOrCreateUser(username2);
     if (!user1 || !user2) {
@@ -66,7 +67,7 @@ export const addCall = async (req, res) => {
       call.callCount = 1;
       if (call.timeDuration === 0) {
         call.timeDuration = timeDuration;
-        console.log("call123", call);
+
         await call.save();
       } else {
         call = new Call({
@@ -91,11 +92,11 @@ export const addCall = async (req, res) => {
       data: call,
     });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "An error occurred while fetching users",
-      error: error.message,
-    });
+    // return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+    //   success: false,
+    //   message: "An error occurred while fetching users",
+    //   error: error.message,
+    // });
   }
 };
 
@@ -104,73 +105,210 @@ export const addCall = async (req, res) => {
 export const getCallDetails = async (req, res) => {
   try {
     const search = req.query.search || "";
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
-    const filterMonth = parseInt(req.query.month, 10);
-    const filterYear = parseInt(req.query.year, 10);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    let startDate = req.query.startDate ? new Date(req.query.startDate) : null;
+    let endDate = req.query.endDate ? new Date(req.query.endDate) : null;
+    const month = parseInt(req.query.month) || 0;
+    const year = parseInt(req.query.year) || 0;
+    const country = req.query.country || "";
 
-    if (filterMonth && (filterMonth < 1 || filterMonth > 12)) {
+    const skip = (page - 1) * limit;
+
+    // Ensure dates are valid
+    if (startDate && isNaN(startDate.getTime())) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Invalid month. Please provide a value between 1 and 12.",
+        message: "Invalid startDate provided",
+      });
+    }
+    if (endDate && isNaN(endDate.getTime())) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Invalid endDate provided",
       });
     }
 
-    const matchOptions = {};
-    if (filterYear || filterMonth || search) {
-      matchOptions.$and = [
-        ...(filterYear
-          ? [{ $expr: { $eq: [{ $year: "$createdAt" }, filterYear] } }]
-          : []),
-        ...(filterMonth
-          ? [{ $expr: { $eq: [{ $month: "$createdAt" }, filterMonth] } }]
-          : []),
-        ...(search
-          ? [
-              {
-                $or: [
-                  { "userDetails.name": { $regex: search, $options: "i" } },
-                  { "userDetails.email": { $regex: search, $options: "i" } },
-                ],
-              },
-            ]
-          : []),
-      ];
-
-      if (matchOptions.$and.length === 0) {
-        delete matchOptions.$and;
-      }
+    // If endDate is provided but not startDate, set startDate to the beginning of time
+    if (endDate && !startDate) {
+      startDate = new Date(0);
     }
 
-    const aggregationPipeline = [
+    // If only startDate is provided, set endDate to current date
+    if (startDate && !endDate) {
+      endDate = new Date();
+    }
+
+    // Match users based on country or name search
+    const matchStage = {};
+    if (country) matchStage.country = { $regex: country, $options: "i" };
+    if (search) matchStage.name = { $regex: search, $options: "i" };
+
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "calls",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $in: ["$$userId", "$users"] },
+                    ...(startDate && endDate
+                      ? [
+                          { $gte: ["$createdAt", startDate] },
+                          {
+                            $lt: [
+                              "$createdAt",
+                              new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+                            ],
+                          },
+                        ]
+                      : []),
+                    ...(month
+                      ? [{ $eq: [{ $month: "$createdAt" }, month] }]
+                      : []),
+                    ...(year ? [{ $eq: [{ $year: "$createdAt" }, year] }] : []),
+                  ],
+                },
+              },
+            },
+            {
+              $unwind: "$users",
+            },
+            {
+              $project: {
+                connectedUserId: {
+                  $cond: [{ $ne: ["$users", "$$userId"] }, "$users", null],
+                },
+                timeDuration: 1,
+                createdAt: 1,
+              },
+            },
+            { $match: { connectedUserId: { $ne: null } } },
+          ],
+          as: "calls",
+        },
+      },
+      {
+        $unwind: {
+          path: "$calls",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "users",
-          localField: "users",
+          localField: "calls.connectedUserId",
           foreignField: "_id",
-          as: "userDetails",
+          pipeline: [{ $project: { password: 0 } }],
+          as: "connectedUserDetails",
         },
       },
-      { $unwind: "$userDetails" },
-      { $unwind: "$userDetails" },
-      ...(Object.keys(matchOptions).length > 0
-        ? [{ $match: matchOptions }]
-        : []),
-
-      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$_id",
+          name: { $first: "$name" },
+          email: { $first: "$email" },
+          avatar: { $first: "$avatar" },
+          username: { $first: "$username" },
+          country: { $first: "$country" },
+          role: { $first: "$role" },
+          calls: { $push: "$calls" },
+          connectedUserDetails: {
+            $push: { $arrayElemAt: ["$connectedUserDetails", 0] },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          avatar: 1,
+          username: 1,
+          country: 1,
+          role: 1,
+          connectedUserDetails: {
+            $filter: {
+              input: "$connectedUserDetails",
+              as: "user",
+              cond: { $ne: ["$$user", null] },
+            },
+          },
+          totalCalls: { $size: "$calls" },
+          totalDuration: {
+            $reduce: {
+              input: "$calls",
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $cond: [
+                      { $eq: [{ $type: "$$this.timeDuration" }, "string"] },
+                      {
+                        $sum: [
+                          {
+                            $multiply: [
+                              {
+                                $toInt: {
+                                  $arrayElemAt: [
+                                    { $split: ["$$this.timeDuration", ":"] },
+                                    0,
+                                  ],
+                                },
+                              },
+                              3600,
+                            ],
+                          },
+                          {
+                            $multiply: [
+                              {
+                                $toInt: {
+                                  $arrayElemAt: [
+                                    { $split: ["$$this.timeDuration", ":"] },
+                                    1,
+                                  ],
+                                },
+                              },
+                              60,
+                            ],
+                          },
+                          {
+                            $toInt: {
+                              $arrayElemAt: [
+                                { $split: ["$$this.timeDuration", ":"] },
+                                2,
+                              ],
+                            },
+                          },
+                        ],
+                      },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $sort: { name: 1 } },
       {
         $facet: {
           metadata: [{ $count: "total" }, { $addFields: { page } }],
-          data: [{ $skip: skip }, { $limit: 10 }],
+          data: [{ $skip: skip }, { $limit: limit }],
         },
       },
     ];
 
-    const callDetails = await Call.aggregate(aggregationPipeline);
-    const metadata = callDetails[0]?.metadata[0] || { total: 0, page: 1 };
-    const data = callDetails[0]?.data || [];
+    const result = await User.aggregate(pipeline);
 
+    const metadata = result[0]?.metadata[0] || { total: 0, page };
+    const data = result[0]?.data || [];
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Call details fetched successfully",
@@ -178,6 +316,7 @@ export const getCallDetails = async (req, res) => {
       data,
     });
   } catch (error) {
+    console.error("Error in getCallDetails:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "An error occurred while fetching call details",
@@ -190,6 +329,7 @@ export const getCallDetails = async (req, res) => {
 //@route GET '/api/call/get-dashboard-page-details'
 export const getDetails = async (req, res) => {
   try {
+    let io;
     const roleFound = await Role.findOne({ role: "USER" });
     if (!roleFound) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -212,11 +352,22 @@ export const getDetails = async (req, res) => {
       { $count: "totalUsers" },
     ]);
     const usersCallTakenCount = userscallTaken[0]?.totalUsers || 0;
+    if (!io) {
+      io = new SocketIOServer();
+    }
+
+    const activeUsers = io ? Object.keys(io.sockets.sockets).length : 0;
+    const activeUsersList = getActiveSessions();
+    const totalCount = Object.values(activeUsersList).reduce((sum, session) => {
+      return sum + session.length;
+    }, 0);
+
     return res.status(StatusCodes.OK).json({
       success: true,
       allusers: allUsers,
       userCount: userCount,
       userscallTaken: usersCallTakenCount,
+      totalCount,
     });
   } catch (error) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({

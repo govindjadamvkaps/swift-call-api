@@ -9,6 +9,7 @@ import "./src/db/connectDB.js";
 import UserRouter from "./src/routes/userRoute.js";
 import CallRoutes from "./src/routes/callRoute.js";
 import socketHandler from "./src/utils/socket.js";
+import { initializeSocket } from "./src/utils/socketData.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,7 +39,8 @@ app.get("/api/socket", (req, res) => {
 });
 
 const server = createServer(app);
-socketHandler(server);
+initializeSocket(server);
+// socketHandler(server);
 
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);

@@ -1,6 +1,7 @@
 import express from "express";
 import {
   allYears,
+  dashboardGraphDetails,
   deleteUser,
   forgotPassword,
   getAllUsers,
@@ -54,5 +55,12 @@ UserRouter.get("/get-year-based-onUsers", verifyToken, checkAdmin, allYears);
 UserRouter.post("/forgot-password", forgotPassword);
 
 UserRouter.post("/reset-password", resetPassword);
+
+UserRouter.get(
+  "/dashboard-graph-details",
+  verifyToken,
+  checkAdmin,
+  dashboardGraphDetails
+);
 
 export default UserRouter;
