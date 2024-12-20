@@ -52,8 +52,10 @@ export const addUser = async (req, res) => {
 export const addCall = async (req, res) => {
   try {
     const { username1, username2, timeDuration } = req.body;
+  
     const user1 = await findOrCreateUser(username1);
     const user2 = await findOrCreateUser(username2);
+   
     if (!user1 || !user2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -62,7 +64,7 @@ export const addCall = async (req, res) => {
     }
 
     let call = await Call.findOne({ users: { $all: [user1._id, user2._id] } });
-
+    
     if (call) {
       call.callCount = 1;
       if (call.timeDuration === 0) {
@@ -85,7 +87,7 @@ export const addCall = async (req, res) => {
       });
       await call.save();
     }
-
+  
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Call added successfully",
