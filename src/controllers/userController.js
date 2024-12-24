@@ -45,7 +45,7 @@ export const registerUser = async (req, res) => {
     const hashPassword = bcryptjs.hashSync(password, 10);
     const userRole = await Role.findOne({ role: "USER" });
     var geo = geoip.lookup(ip);
-   
+
     const user = new User({
       name,
       username,
@@ -215,9 +215,7 @@ export const getAllUsers = async (req, res) => {
       (Array.isArray(data) && data.length === 0) ||
       (data.docs && data.docs.length === 0)
     ) {
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json({ success: false, data: [] });
+      return res.status(StatusCodes.OK).json({ success: true, data: [] });
     }
 
     return res.status(StatusCodes.OK).json({
