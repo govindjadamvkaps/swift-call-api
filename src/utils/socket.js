@@ -3,12 +3,21 @@ import axios from "axios";
 
 const TraceUserCall = async (username1, username2, callDuration) => {
   try {
+    console.log(
+      "usernames8787",
+      username1,
+      username2,
+      callDuration,
+      process.env.API_URL
+    );
     await axios.post(`${process.env.API_URL}/api/call/add-call`, {
       username1,
       username2,
       timeDuration: callDuration,
     });
-  } catch (err) {}
+  } catch (err) {
+    console.error("Error in TraceUserCall:", err.message);
+  }
 };
 
 const socketHandler = (server) => {
@@ -217,13 +226,14 @@ const socketHandler = (server) => {
       if (active_sessions_users[roomName]?.length === 2) {
         if (active_sessions_users[roomName] !== undefined) {
           const [user1, user2] = active_sessions_users[roomName];
+         
           let userdata2;
           if (user1?.username === username) {
             userdata2 = user2?.username;
           } else {
             userdata2 = user1?.username;
           }
-
+        
           await TraceUserCall(username, userdata2 || "Unknown", callDuration);
         }
       }

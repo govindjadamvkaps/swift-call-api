@@ -2,7 +2,11 @@ import mongoose, { mongo } from "mongoose";
 
 const roleSchema = new mongoose.Schema(
   {
-    role: { type: String, enum: ["ADMIN", "USER"], required: true },
+    role: {
+      type: String,
+      enum: ["ADMIN", "USER", "SUPER-ADMIN"],
+      required: true,
+    },
   },
   {
     timestamps: true,

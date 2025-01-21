@@ -24,6 +24,12 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    permission: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Permission",
+      },
+    ],
     role: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "role",

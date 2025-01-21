@@ -1,10 +1,7 @@
 import { StatusCodes } from "http-status-codes";
-const checkBoth = (req, res, next) => {
+const checkSuperadmin = (req, res, next) => {
   try {
-    if (
-      req.user &&
-      (req.user.role.role === "SUPER-ADMIN" || req.user.role.role === "ADMIN")
-    ) {
+    if (req.user && req.user.role.role === "SUPER-ADMIN") {
       next();
     } else {
       throw new Error();
@@ -16,4 +13,4 @@ const checkBoth = (req, res, next) => {
   }
 };
 
-export default checkBoth;
+export default checkSuperadmin;
