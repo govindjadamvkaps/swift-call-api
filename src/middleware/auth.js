@@ -14,8 +14,9 @@ const verifyToken = async (req, res, next) => {
     }
     //  token = token.replace('Bearer ',"")
     token = token.split(" ")[1];
-
+    
     const decode = jwt.verify(token, process.env.SECRET_KEY);
+    
     const user = await User.findById(decode._id);
 
     if (!user) {
@@ -24,9 +25,12 @@ const verifyToken = async (req, res, next) => {
         .json({ success: false, message: "unAuthorized" });
     } else {
       await user.populate("role");
+
       req.user = user;
       req.token = token;
+
       next();
+     
     }
   } catch (error) {
     // console.log(error)

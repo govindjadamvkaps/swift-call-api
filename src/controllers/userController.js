@@ -27,7 +27,7 @@ export const registerUser = async (req, res) => {
         .status(StatusCodes.BAD_REQUEST)
         .json({ success: false, message: firstErrorMessage });
     }
-    const { name, email, password, username, ip } = req.body;
+    const { name, email, password, ip } = req.body;
     const isEmailMatch = await User.findOne({ email: email });
     if (isEmailMatch) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -35,20 +35,14 @@ export const registerUser = async (req, res) => {
         message: "Email address is already registered.",
       });
     }
-    const usernameMatched = await User.findOne({ username: username });
-    if (usernameMatched) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Username is already registered.",
-      });
-    }
+
     const hashPassword = bcryptjs.hashSync(password, 10);
     const userRole = await Role.findOne({ role: "USER" });
     var geo = geoip.lookup(ip);
 
     const user = new User({
       name,
-      username,
+      permission: [],
       email,
       password: hashPassword,
       role: userRole._id,
@@ -313,9 +307,13 @@ export const allYears = async (req, res) => {
 //@route GET '/api/user/user-profile
 export const getUserProfile = async (req, res) => {
   try {
+    const user = await User.findById(req.user._id)
+      .populate("permission")
+      .populate("role");
+
     return res.status(StatusCodes.OK).json({
       success: true,
-      user: req.user,
+      user: user,
     });
   } catch (err) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -335,7 +333,7 @@ export const updateUser = async (req, res) => {
     let updatedData = req.body;
 
     if (updatedData.email !== req.user.email) {
-      const userFound = await User.findOne({
+      var userFound = await User.findOne({
         email: updatedData.email,
         _id: { $ne: id },
       });
@@ -347,6 +345,7 @@ export const updateUser = async (req, res) => {
         });
       }
     }
+
     if (req.file) {
       const imagePath = `images/${req.file.filename}`;
       updatedData.avatar = imagePath;
@@ -368,10 +367,14 @@ export const updateUser = async (req, res) => {
       }
     }
 
-    const updatedUser = await User.findByIdAndUpdate({ _id: id }, updatedData, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedUser = await User.findByIdAndUpdate(
+      { _id: id },
+      { ...updatedData, ip: userFound?.ip ? userFound?.ip : updatedData?.ip },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -457,7 +460,6 @@ export const resetPassword = async (req, res) => {
       message: "Reset password successfully.",
     });
   } catch (error) {
-    console.log("error", error.message);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
@@ -574,4 +576,27 @@ export const dashboardGraphDetails = async (req, res) => {
       maxValue,
     });
   } catch (error) {}
+};
+
+// @desc Put delete User
+// @route POST '/api/user/delete-user'
+// @access Private: User
+export const deleteUserByToken = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const deletedUser = await User.findByIdAndDelete(id);
+
+    if (!deletedUser) {
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
+    }
+
+    res.status(200).json({ message: "Deleted successfully", success: true });
+  } catch (err) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: err?.message,
+    });
+  }
 };

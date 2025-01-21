@@ -3,6 +3,7 @@ import {
   allYears,
   dashboardGraphDetails,
   deleteUser,
+  deleteUserByToken,
   forgotPassword,
   getAllUsers,
   getUserProfile,
@@ -20,6 +21,8 @@ import { upload } from "../utils/multer.js";
 import verifyToken from "../middleware/auth.js";
 import checkAdmin from "../middleware/checkAdmin.js";
 import multer from "multer";
+import checkBoth from "../middleware/checkAdmin.js";
+import permissionCheck from "../middleware/permissionCheck.js";
 
 const UserRouter = express.Router();
 
@@ -27,7 +30,14 @@ UserRouter.post("/signup", validateSignup, registerUser);
 
 UserRouter.post("/login", validateLogin, login);
 
-UserRouter.delete("/:id", verifyToken, checkAdmin, deleteUser);
+//need to chANGE IN THIS API
+UserRouter.delete(
+  "/:id",
+  verifyToken,
+  checkBoth,
+  permissionCheck("delete"),
+  deleteUser
+);
 
 UserRouter.put(
   "/update",
@@ -45,12 +55,18 @@ UserRouter.put(
   },
   updateUser
 );
-
-UserRouter.get("/get-all-users", verifyToken, checkAdmin, getAllUsers);
+//need to chANGE IN THIS API
+UserRouter.get(
+  "/get-all-users",
+  verifyToken,
+  checkBoth,
+  permissionCheck("view"),
+  getAllUsers
+);
 
 UserRouter.get("/user-profile", verifyToken, getUserProfile);
 
-UserRouter.get("/get-year-based-onUsers", verifyToken, checkAdmin, allYears);
+UserRouter.get("/get-year-based-onUsers", verifyToken, allYears);
 
 UserRouter.post("/forgot-password", forgotPassword);
 
@@ -59,8 +75,9 @@ UserRouter.post("/reset-password", resetPassword);
 UserRouter.get(
   "/dashboard-graph-details",
   verifyToken,
-  checkAdmin,
+  checkBoth,
   dashboardGraphDetails
 );
+UserRouter.delete("/user/delete-user", verifyToken, deleteUserByToken);
 
 export default UserRouter;

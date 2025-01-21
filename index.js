@@ -8,8 +8,9 @@ import cors from "cors";
 import "./src/db/connectDB.js";
 import UserRouter from "./src/routes/userRoute.js";
 import CallRoutes from "./src/routes/callRoute.js";
-import socketHandler from "./src/utils/socket.js";
+import AdminRoutes from "./src/routes/adminRoute.js";
 import { initializeSocket } from "./src/utils/socketData.js";
+import PermissionRouter from "./src/routes/permissionRoute.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +24,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/public", express.static(path.join(__dirname, "./public")));
 
 app.use("/api/user", UserRouter);
+app.use("/api/permission", PermissionRouter);
 app.use("/api/call", CallRoutes);
+app.use("/api/admin", AdminRoutes);
 
 app.get("/", (req, res) => {
   return res
@@ -41,7 +44,6 @@ app.get("/api/socket", (req, res) => {
 const server = createServer(app);
 initializeSocket(server);
 // socketHandler(server);
-
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
