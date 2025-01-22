@@ -15,7 +15,7 @@ CallRoutes.post("/add-user", addUser);
 
 CallRoutes.post("/add-call", addCall);
 
-CallRoutes.get("/get-call-details", checkBoth, getCallDetails);
+CallRoutes.get("/get-call-details", verifyToken, checkBoth, getCallDetails);
 
 CallRoutes.get(
   "/get-dashboard-page-details",
