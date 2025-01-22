@@ -27,6 +27,9 @@ export const addUser = async (req, res) => {
 
       await newUser.save();
     } else {
+      if (!userExist?.ip) {
+        await User.findByIdAndUpdate({ _id: userId }, { $set: { ip: ip } });
+      }
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: "User name already exist",
@@ -50,12 +53,11 @@ export const addUser = async (req, res) => {
 //@route POST '/api/call/add-call"
 export const addCall = async (req, res) => {
   try {
-    
     const { username1, username2, timeDuration } = req.body;
-  
+
     const user1 = await findOrCreateUser(username1);
     const user2 = await findOrCreateUser(username2);
-   
+
     if (!user1 || !user2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -64,7 +66,7 @@ export const addCall = async (req, res) => {
     }
 
     let call = await Call.findOne({ users: { $all: [user1, user2] } });
-  
+
     if (call) {
       call.callCount = 1;
       if (call.timeDuration === 0) {
@@ -417,7 +419,62 @@ export const getCallDetails = async (req, res) => {
 //@route GET '/api/call/get-dashboard-page-details'
 export const getDetails = async (req, res) => {
   try {
-    let io;
+    const { startDate, endDate, month, year, country } = req.query;
+    const filters = {};
+
+    // Date range filter
+    if (startDate || endDate) {
+      filters.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Invalid startDate provided",
+          });
+        }
+        filters.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        if (isNaN(end.getTime())) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Invalid endDate provided",
+          });
+        }
+        filters.createdAt.$lte = new Date(end.setHours(23, 59, 59, 999)); // Set to end of day
+      }
+    }
+
+    // Month and year filter
+    if (month || year) {
+      const currentDate = new Date();
+      const monthNum = month ? parseInt(month) : currentDate.getMonth() + 1;
+      const yearNum = year ? parseInt(year) : currentDate.getFullYear();
+
+      if (isNaN(monthNum) || isNaN(yearNum) || monthNum < 1 || monthNum > 12) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid month or year provided",
+        });
+      }
+
+      const startDate = new Date(yearNum, monthNum - 1, 1);
+      const endDate = new Date(yearNum, monthNum, 0); // Last day of the month
+      endDate.setHours(23, 59, 59, 999);
+
+      filters.createdAt = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    // Country filter
+    if (country) {
+      filters.country = { $regex: new RegExp("^" + country + "$", "i") };
+    }
+
     const roleFound = await Role.findOne({ role: "USER" });
     if (!roleFound) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -425,30 +482,28 @@ export const getDetails = async (req, res) => {
         message: "Role 'USER' not found",
       });
     }
-    const allUsers = await User.countDocuments({ role: roleFound?._id });
+
+    // Apply role filter
+    filters.role = roleFound._id;
+
+    const allUsers = await User.countDocuments(filters);
     const userCount = await User.countDocuments({
-      role: roleFound?._id,
-      email: {
-        $exists: true,
-        $ne: "",
-      },
+      ...filters,
+      email: { $exists: true, $ne: "" },
     });
+
     const userscallTaken = await Call.aggregate([
-      {
-        $unwind: "$users",
-      },
-      { $count: "totalUsers" },
+      { $match: filters },
+      { $unwind: "$users" },
+      { $group: { _id: null, totalUsers: { $sum: 1 } } },
     ]);
     const usersCallTakenCount = userscallTaken[0]?.totalUsers || 0;
-    if (!io) {
-      io = new SocketIOServer();
-    }
 
-    const activeUsers = io ? Object.keys(io.sockets.sockets).length : 0;
     const activeUsersList = getActiveSessions();
-    const totalCount = Object.values(activeUsersList).reduce((sum, session) => {
-      return sum + session.length;
-    }, 0);
+    const totalCount = Object.values(activeUsersList).reduce(
+      (sum, session) => sum + session.length,
+      0
+    );
 
     return res.status(StatusCodes.OK).json({
       success: true,
@@ -458,9 +513,10 @@ export const getDetails = async (req, res) => {
       totalCount,
     });
   } catch (error) {
+    console.error("Error in getDetails:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "An error occurred while fetching call details",
+      message: "An error occurred while fetching user details",
       error: error.message,
     });
   }
