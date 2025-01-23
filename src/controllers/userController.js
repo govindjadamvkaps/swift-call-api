@@ -7,7 +7,11 @@ import { validationResult } from "express-validator";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sendForgotMail } from "../utils/email.js";
+import {
+  deleteAccount,
+  emailSendAdmin,
+  sendForgotMail,
+} from "../utils/email.js";
 import jwt from "jsonwebtoken";
 import geoip from "geoip-country";
 import Call from "../models/CallModel.js";
@@ -54,7 +58,7 @@ export const registerUser = async (req, res) => {
 
     const userData = await user.save();
     await userData.populate("role");
-
+    await emailSendAdmin(email, name, password);
     return res.status(StatusCodes.CREATED).json({
       success: true,
       message: "User registered successfully!",
@@ -240,7 +244,7 @@ export const deleteUser = async (req, res) => {
         .status(404)
         .json({ message: "User not found", success: false });
     }
-
+    await deleteAccount(deletedUser?.email, deletedUser?.name);
     res
       .status(200)
       .json({ message: "User deleted successfully", success: true });
