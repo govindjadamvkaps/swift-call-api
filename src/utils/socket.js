@@ -52,6 +52,7 @@ const socketHandler = (server) => {
 
     //store_peer_ip
     socket.on("store_peer_ip", ({ roomName, username }) => {
+      console.log("username", username);
       if (active_sessions_users[roomName]) {
         const userIndex = active_sessions_users[roomName].indexOf(socket.id);
         if (userIndex !== -1) {
@@ -226,14 +227,14 @@ const socketHandler = (server) => {
       if (active_sessions_users[roomName]?.length === 2) {
         if (active_sessions_users[roomName] !== undefined) {
           const [user1, user2] = active_sessions_users[roomName];
-         
+
           let userdata2;
           if (user1?.username === username) {
             userdata2 = user2?.username;
           } else {
             userdata2 = user1?.username;
           }
-        
+
           await TraceUserCall(username, userdata2 || "Unknown", callDuration);
         }
       }
