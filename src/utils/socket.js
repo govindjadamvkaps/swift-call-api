@@ -8,7 +8,7 @@ const TraceUserCall = async (username1, username2, callDuration) => {
       username1,
       username2,
       callDuration,
-      process.env.API_URL
+      `${process.env.API_URL}/api/call/add-call`
     );
     await axios.post(`${process.env.API_URL}/api/call/add-call`, {
       username1,

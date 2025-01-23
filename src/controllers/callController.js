@@ -96,11 +96,11 @@ export const addCall = async (req, res) => {
       data: call,
     });
   } catch (error) {
-    // return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-    //   success: false,
-    //   message: "An error occurred while fetching users",
-    //   error: error.message,
-    // });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "An error occurred while fetching users",
+      error: error.message,
+    });
   }
 };
 
