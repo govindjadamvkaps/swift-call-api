@@ -90,3 +90,56 @@ export const emailSendAdmin = async (email, name, password) => {
     throw error;
   }
 };
+
+export const deleteAccount = async (email, name) => {
+  try {
+    const { BREVO_API, BREVO_EMAIL, BERVO_NAME, BREVO_API_KEY } = process.env;
+
+    if (!BREVO_API || !BREVO_EMAIL || !BERVO_NAME || !BREVO_API_KEY) {
+      throw new Error(
+        "Missing required environment variables for email service"
+      );
+    }
+
+    const response = await axios.post(
+      BREVO_API,
+      {
+        sender: { email: BREVO_EMAIL, name: BERVO_NAME },
+        to: [{ email: email }],
+        subject: "You're Account has delete in Swift-call",
+        htmlContent: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Delete Account</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f8f8; border-radius: 5px;">
+              <tr>
+                <td style="padding: 20px;">
+                  <h1 style="color: #4a4a4a; text-align: center; margin-bottom: 20px;">hello, ${name} your're account deleted successfully!</h1>
+                 
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+      },
+      {
+        headers: {
+          "api-key": BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("Email sent successfully:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    throw error;
+  }
+};

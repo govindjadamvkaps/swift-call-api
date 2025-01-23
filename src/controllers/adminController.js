@@ -5,7 +5,7 @@ import Role from "../models/RoleModel.js";
 import errorHandler from "../middleware/validationErrorHandler.js";
 import { validationResult } from "express-validator";
 import geoip from "geoip-country";
-import { emailSendAdmin } from "../utils/email.js";
+import { deleteAccount, emailSendAdmin } from "../utils/email.js";
 
 // @desc Register a new admin
 // @route POST '/api/admin/signup'
@@ -218,7 +218,7 @@ export const deleteAdmin = async (req, res) => {
         .status(404)
         .json({ message: "Admin not found", success: false });
     }
-
+    await deleteAccount(deletedUser?.email, deletedUser?.name);
     res
       .status(200)
       .json({ message: "Admin deleted successfully", success: true });
