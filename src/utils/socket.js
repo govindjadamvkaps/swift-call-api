@@ -3,13 +3,7 @@ import axios from "axios";
 
 const TraceUserCall = async (username1, username2, callDuration) => {
   try {
-    console.log(
-      "usernames8787",
-      username1,
-      username2,
-      callDuration,
-      `${process.env.API_URL}/api/call/add-call`
-    );
+   
     await axios.post(`${process.env.API_URL}/api/call/add-call`, {
       username1,
       username2,
@@ -52,7 +46,7 @@ const socketHandler = (server) => {
 
     //store_peer_ip
     socket.on("store_peer_ip", ({ roomName, username }) => {
-      console.log("username", username);
+     
       if (active_sessions_users[roomName]) {
         const userIndex = active_sessions_users[roomName].indexOf(socket.id);
         if (userIndex !== -1) {

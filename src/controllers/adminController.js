@@ -5,7 +5,12 @@ import Role from "../models/RoleModel.js";
 import errorHandler from "../middleware/validationErrorHandler.js";
 import { validationResult } from "express-validator";
 import geoip from "geoip-country";
-import { deleteAccount, emailSendAdmin } from "../utils/email.js";
+import {
+  deleteAccount,
+  emailSendAdmin,
+  emailSendEditAdmin,
+} from "../utils/email.js";
+import { decrypt, encrypt } from "../utils/encryptDecypt.js";
 
 // @desc Register a new admin
 // @route POST '/api/admin/signup'
@@ -39,13 +44,17 @@ export const registerAdmin = async (req, res) => {
     if (req.file) {
       imagePath = `images/${req.file.filename}`;
     }
-    await emailSendAdmin(email, name, password);
+    const encryptData = encrypt(password);
+    try {
+      await emailSendAdmin(email, name, password);
+    } catch (error) {}
     const user = new User({
       name,
       email,
       permission: [],
       avatar: imagePath,
       password: hashPassword,
+      encryptPassword: encryptData,
       role: userRole._id,
     });
 
@@ -218,7 +227,9 @@ export const deleteAdmin = async (req, res) => {
         .status(404)
         .json({ message: "Admin not found", success: false });
     }
-    await deleteAccount(deletedUser?.email, deletedUser?.name);
+    try {
+      await deleteAccount(deletedUser?.email, deletedUser?.name);
+    } catch (error) {}
     res
       .status(200)
       .json({ message: "Admin deleted successfully", success: true });
@@ -297,9 +308,19 @@ export const getSingleAdmin = async (req, res) => {
         .status(404)
         .json({ message: "Admin not found", success: false });
     }
+    try {
+      const decryptedPassword = decrypt(userFound.encryptPassword);
+      userFound.encryptPassword = decryptedPassword;
+    } catch (decryptErr) {
+      return res.status(200).json({
+        message: "Admin fetched successfully",
+        success: true,
+        data: userFound,
+      });
+    }
 
     res.status(200).json({
-      message: "Admin deleted successfully",
+      message: "Admin fetched successfully",
       success: true,
       data: userFound,
     });
@@ -354,7 +375,17 @@ export const updateAdmin = async (req, res) => {
         fs.unlinkSync(oldImagePath);
       }
     }
+    try {
+      await emailSendEditAdmin(
+        updatedData.email,
+        updatedData.name,
+        updatedData?.password
+      );
+    } catch (error) {}
 
+    const encryptData = encrypt(updatedData?.password);
+    updatedData.encryptPassword = encryptData;
+    updatedData.password = bcryptjs.hashSync(updatedData?.password, 10);
     const updatedUser = await User.findByIdAndUpdate({ _id: id }, updatedData, {
       new: true,
       runValidators: true,
