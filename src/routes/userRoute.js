@@ -31,7 +31,7 @@ UserRouter.post("/signup", validateSignup, registerUser);
 UserRouter.post("/login", validateLogin, login);
 
 //need to chANGE IN THIS API
-UserRouter.delete(
+UserRouter.delete(  
   "/:id",
   verifyToken,
   checkBoth,

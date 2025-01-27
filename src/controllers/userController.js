@@ -58,7 +58,9 @@ export const registerUser = async (req, res) => {
 
     const userData = await user.save();
     await userData.populate("role");
-    await emailSendAdmin(email, name, password);
+    try {
+      await emailSendAdmin(email, name, password);
+    } catch (error) {}
     return res.status(StatusCodes.CREATED).json({
       success: true,
       message: "User registered successfully!",
@@ -244,7 +246,9 @@ export const deleteUser = async (req, res) => {
         .status(404)
         .json({ message: "User not found", success: false });
     }
-    await deleteAccount(deletedUser?.email, deletedUser?.name);
+    try {
+      await deleteAccount(deletedUser?.email, deletedUser?.name);
+    } catch (error) {}
     res
       .status(200)
       .json({ message: "User deleted successfully", success: true });
