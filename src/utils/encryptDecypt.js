@@ -1,12 +1,8 @@
 import crypto from "crypto";
 
 const algorithm = "aes-256-cbc";
-const secretKey = Buffer.from(
-  "j3Nk1FyS1owP5rTO+5fFpbcVmY7E2RvEOi+OBofL/+Q=/*",
-  "base64"
-);
-const iv = Buffer.from("qOcZ1Hjcl6Udc+HXvUAXRQ==++", "base64");
-
+const secretKey = Buffer.from(process.env.SECRET_ENCRYTION, "base64");
+const iv = Buffer.from(process.env.SECRET_IV_DATA, "base64");
 // Encrypt Function
 export function encrypt(data) {
   try {
