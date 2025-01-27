@@ -54,10 +54,10 @@ export const addUser = async (req, res) => {
 export const addCall = async (req, res) => {
   try {
     const { username1, username2, timeDuration } = req.body;
-    console.log("add call", username1, username2, timeDuration);
+  
     const user1 = await findOrCreateUser(username1);
     const user2 = await findOrCreateUser(username2);
-    console.log("user calls", user1, user2);
+  
     if (!user1 || !user2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -89,7 +89,7 @@ export const addCall = async (req, res) => {
       });
       await call.save();
     }
-    console.log("Call accepeted");
+
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Call added successfully",

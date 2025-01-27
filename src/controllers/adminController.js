@@ -4,7 +4,7 @@ import bcryptjs from "bcryptjs";
 import Role from "../models/RoleModel.js";
 import errorHandler from "../middleware/validationErrorHandler.js";
 import { validationResult } from "express-validator";
-import geoip from "geoip-country";
+
 import {
   deleteAccount,
   emailSendAdmin,
