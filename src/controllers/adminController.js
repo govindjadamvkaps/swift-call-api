@@ -216,7 +216,6 @@ export const getAllAdmins = async (req, res) => {
 //@desc delete single admin
 //@route DELETE 'api/admin/:id"
 //@access Private :Superadmin
-
 export const deleteAdmin = async (req, res) => {
   try {
     const { id } = req.params;

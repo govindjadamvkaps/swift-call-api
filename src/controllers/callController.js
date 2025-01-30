@@ -54,10 +54,10 @@ export const addUser = async (req, res) => {
 export const addCall = async (req, res) => {
   try {
     const { username1, username2, timeDuration } = req.body;
-  
+
     const user1 = await findOrCreateUser(username1);
     const user2 = await findOrCreateUser(username2);
-  
+
     if (!user1 || !user2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -314,6 +314,16 @@ export const getCallDetails = async (req, res) => {
                   },
                 },
               },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          connectedCountries: {
+            $sortArray: {
+              input: "$connectedCountries",
+              sortBy: { total: -1 },
             },
           },
         },
