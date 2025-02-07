@@ -11,6 +11,8 @@ import {
   deleteAccount,
   emailSendAdmin,
   sendForgotMail,
+  sendOTPEmail,
+  successfullylogin,
 } from "../utils/email.js";
 import jwt from "jsonwebtoken";
 import geoip from "geoip-country";
@@ -34,10 +36,43 @@ export const registerUser = async (req, res) => {
     const { name, email, password, ip } = req.body;
     const isEmailMatch = await User.findOne({ email: email });
     if (isEmailMatch) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Email address is already registered.",
-      });
+      await isEmailMatch.populate("role");
+      if (
+        isEmailMatch?.isVerified ||
+        isEmailMatch?.role?.role === "SUPER-ADMIN"
+      ) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email address is already registered.",
+        });
+      } else {
+        const hashPassword = bcryptjs.hashSync(password, 10);
+        await User.findByIdAndUpdate(
+          { _id: isEmailMatch?._id },
+          {
+            name: name,
+            email,
+            password: hashPassword,
+            ip,
+          }
+        );
+        const otpData = isEmailMatch.generateOTP();
+        await isEmailMatch.save();
+        try {
+          await sendOTPEmail(name, email, otpData);
+        } catch (error) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            error,
+            message: "Failed to send OTP email",
+          });
+        }
+        return res.status(StatusCodes.ACCEPTED).json({
+          success: false,
+          isEmailMatch,
+          message: "OTP has sended in you're mail,please verify",
+        });
+      }
     }
 
     const hashPassword = bcryptjs.hashSync(password, 10);
@@ -54,17 +89,24 @@ export const registerUser = async (req, res) => {
       country: geo?.country,
     });
 
-    const token = await user.generateAuthToken();
+    const otp = user.generateOTP();
 
-    const userData = await user.save();
-    await userData.populate("role");
+    await user.save();
+    await user.populate("role");
     try {
-      await emailSendAdmin(email, name, password);
-    } catch (error) {}
+      await sendOTPEmail(name, email, otp);
+    } catch (error) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        error,
+        message: "You're not registered now their is problem to send OTP email",
+      });
+    }
     return res.status(StatusCodes.CREATED).json({
       success: true,
-      message: "User registered successfully!",
-      data: { user: userData, token: token },
+      message:
+        "User registered successfully! Please verify your email with the OTP sent.!",
+      isEmailMatch: user,
     });
   } catch (error) {
     return res.status(500).json({
@@ -114,14 +156,36 @@ export const login = async (req, res) => {
         .status(StatusCodes.UNAUTHORIZED)
         .json({ success: false, message: "Invalid email or password." });
     }
+    if (user?.isVerified || user?.role?.role === "SUPER-ADMIN") {
+      try {
+        await successfullylogin(email);
+      } catch (error) {}
+      // Generate token and send success response
+      const token = await user.generateAuthToken();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Login successful.",
+        data: { user: user, token: token },
+      });
+    } else {
+      const otpData = await user.generateOTP();
+      await user.save();
+      try {
+        await sendOTPEmail(user.name, email, otpData);
 
-    // Generate token and send success response
-    const token = await user.generateAuthToken();
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: "Login successful.",
-      data: { user: user, token: token },
-    });
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          message: "OTP has sended in you're mail,please verify",
+          data: { user: user },
+        });
+      } catch (error) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          error,
+          message: "Failed to send OTP email",
+        });
+      }
+    }
   } catch (error) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
@@ -147,6 +211,7 @@ export const getAllUsers = async (req, res) => {
     let matchOptions = {
       role: userRole._id,
       isDeleted: false,
+      isVerified: true,
       email: { $exists: true, $ne: "" },
     };
 
@@ -417,7 +482,7 @@ export const forgotPassword = async (req, res) => {
       { _id: userFound._id, email: userFound.email },
       process.env.SECRET_KEY,
       {
-        expiresIn: "1h",
+        expiresIn: "20m",
       }
     );
 
@@ -444,7 +509,7 @@ export const resetPassword = async (req, res) => {
     if (!password || !token) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Token and password must be required",
+        message: "Token and password is required",
       });
     }
 
@@ -587,7 +652,7 @@ export const dashboardGraphDetails = async (req, res) => {
 };
 
 // @desc Put delete User
-// @route POST '/api/user/delete-user'
+// @route DELETE '/api/user/delete-user'
 // @access Private: User
 export const deleteUserByToken = async (req, res) => {
   try {
@@ -605,6 +670,50 @@ export const deleteUserByToken = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: err?.message,
+    });
+  }
+};
+
+// @desc verify OTP
+// @route POST '/api/user/verify-otp'
+
+export const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+    console.log("user otp", user.otp, otp, user.otpExpires);
+    if (user.otp !== otp || user.otpExpires < new Date()) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+
+    const token = await user.generateAuthToken();
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Email verified successfully!",
+      data: { user, token },
+    });
+  } catch (error) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "An error occurred while verifying OTP.",
+      error: error.message,
     });
   }
 };

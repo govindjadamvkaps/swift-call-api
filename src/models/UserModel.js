@@ -44,6 +44,18 @@ const userSchema = new mongoose.Schema(
     country: {
       type: String,
     },
+    otp: {
+      type: String,
+      default: null,
+    },
+    otpExpires: {
+      type: Date,
+      default: null,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -79,7 +91,12 @@ userSchema.methods.generateAuthToken = async function () {
     console.log("error in generating token", error);
   }
 };
-
+userSchema.methods.generateOTP = function () {
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  this.otp = otp;
+  this.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+  return otp;
+};
 userSchema.plugin(aggregatePaginate);
 const User = mongoose.model("user", userSchema);
 

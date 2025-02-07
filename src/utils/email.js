@@ -2,7 +2,7 @@ import axios from "axios";
 
 export const sendForgotMail = async (email, token) => {
   try {
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
     const { BREVO_API, BREVO_EMAIL, BERVO_NAME } = process.env;
     const response = await axios.post(
       BREVO_API,
@@ -12,7 +12,7 @@ export const sendForgotMail = async (email, token) => {
         subject: "Reset Your Password",
         htmlContent: `
           <h1>Reset Your Password</h1>
-          <p>Click the link below to reset your password. This link will expire in 24 hour.</p>
+          <p>Click the link below to reset your password. This link will expire in 20 min.</p>
           <a href="${resetLink}">${resetLink}</a>
         `,
       },
@@ -194,10 +194,84 @@ export const deleteAccount = async (email, name) => {
       }
     );
 
-  
     return response.data;
   } catch (error) {
     console.error("Error sending email:", error);
     throw error;
+  }
+};
+
+export const successfullylogin = async (email) => {
+  try {
+    const { BREVO_API, BREVO_EMAIL, BERVO_NAME } = process.env;
+    const response = await axios.post(
+      BREVO_API,
+      {
+        sender: { email: BREVO_EMAIL, name: BERVO_NAME },
+        to: [{ email: email }],
+        subject: "Successfully Logged In",
+        htmlContent: `
+          <h1>You have successfully logged in</h1>
+         
+        `,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (Err) {
+    // console.error("Error sending email:", Err);
+    return Err;
+  }
+};
+
+export const sendOTPEmail = async (name, email, otp) => {
+  try {
+    const { BREVO_API, BREVO_EMAIL, BERVO_NAME, BREVO_API_KEY } = process.env;
+   
+    if (!BREVO_API || !BREVO_EMAIL || !BERVO_NAME || !BREVO_API_KEY) {
+      throw new Error("Missing Brevo configuration in environment variables");
+    }
+
+    const htmlContent = `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>Hello ${name},</h2>
+          <p>Thank you for registering with our service. To complete your registration, please use the following One-Time Password (OTP):</p>
+          <h1 style="color: #4CAF50; font-size: 32px; text-align: center;">${otp}</h1>
+          <p>This OTP is valid for 10 minutes. If you didn't request this, please ignore this email.</p>
+          <p>Best regards,<br>Your App Team</p>
+        </body>
+      </html>
+    `;
+   
+    const response = await axios.post(
+      BREVO_API,
+      {
+        sender: { email: BREVO_EMAIL, name: BERVO_NAME },
+        to: [{ email: email }],
+        subject: "Verify Your Email - OTP Inside",
+        htmlContent: htmlContent,
+      },
+      {
+        headers: {
+          "api-key": BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+   
+    return { success: true, message: "OTP email sent successfully" };
+  } catch (error) {
+    // console.error("Error sending OTP email:", error);
+    throw new Error(
+      "Failed to send OTP email: " +
+        (error.response?.data?.message || error.message)
+    );
   }
 };
