@@ -56,6 +56,7 @@ export const registerAdmin = async (req, res) => {
       password: hashPassword,
       encryptPassword: encryptData,
       role: userRole._id,
+      isVerified: true,
     });
 
     const token = await user.generateAuthToken();

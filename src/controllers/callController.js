@@ -497,9 +497,11 @@ export const getDetails = async (req, res) => {
     filters.role = roleFound._id;
 
     const allUsers = await User.countDocuments(filters);
+
     const userCount = await User.countDocuments({
       ...filters,
       email: { $exists: true, $ne: "" },
+      isVerified: true,
     });
 
     const userscallTaken = await Call.aggregate([

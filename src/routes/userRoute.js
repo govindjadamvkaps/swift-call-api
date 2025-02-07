@@ -11,6 +11,7 @@ import {
   registerUser,
   resetPassword,
   updateUser,
+  verifyOTP,
 } from "../controllers/userController.js";
 import {
   validateLogin,
@@ -31,7 +32,7 @@ UserRouter.post("/signup", validateSignup, registerUser);
 UserRouter.post("/login", validateLogin, login);
 
 //need to chANGE IN THIS API
-UserRouter.delete(  
+UserRouter.delete(
   "/:id",
   verifyToken,
   checkBoth,
@@ -78,6 +79,9 @@ UserRouter.get(
   checkBoth,
   dashboardGraphDetails
 );
+
+UserRouter.post("/verify-otp", verifyOTP);
+
 UserRouter.delete("/user/delete-user", verifyToken, deleteUserByToken);
 
 export default UserRouter;
