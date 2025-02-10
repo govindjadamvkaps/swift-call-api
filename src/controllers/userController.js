@@ -478,6 +478,31 @@ export const forgotPassword = async (req, res) => {
         message: "The email address does not exist.",
       });
     }
+    await userFound.populate("role");
+    if (
+      userFound?.isVerified !== true &&
+      userFound?.role?.role !== "SUPER-ADMIN"
+    ) {
+      const otpData = await userFound.generateOTP();
+      await userFound.save();
+      try {
+        await sendOTPEmail(userFound.name, email, otpData);
+
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: true,
+          otp: true,
+          message:
+            "OTP has sended in you're mail,please verify  your otp first",
+        });
+      } catch (error) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          error,
+          message: "Failed to send OTP email",
+        });
+      }
+    }
+
     const token = await jwt.sign(
       { _id: userFound._id, email: userFound.email },
       process.env.SECRET_KEY,
@@ -689,7 +714,7 @@ export const verifyOTP = async (req, res) => {
         message: "User not found.",
       });
     }
-    console.log("user otp", user.otp, otp, user.otpExpires);
+   
     if (user.otp !== otp || user.otpExpires < new Date()) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,

@@ -66,7 +66,7 @@ export const addCall = async (req, res) => {
     }
 
     let call = await Call.findOne({ users: { $all: [user1, user2] } });
-    console.log("call", call);
+   
     if (call) {
       call.callCount = 1;
       if (call.timeDuration === 0) {
