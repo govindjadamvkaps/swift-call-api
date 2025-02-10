@@ -12,8 +12,21 @@ export const sendForgotMail = async (email, token) => {
         subject: "Reset Your Password",
         htmlContent: `
           <h1>Reset Your Password</h1>
-          <p>Click the link below to reset your password. This link will expire in 20 min.</p>
-          <a href="${resetLink}">${resetLink}</a>
+          <h5>Click the link below or reset password button. This link will expire in 20 min.</h5>
+          <a href="${resetLink}" style="cursor:pointer">
+            <button type="button" style="
+              background-color: #007bff;
+              color: white;
+              padding: 10px 20px;
+              border: none;
+              border-radius: 5px;
+              font-size: 16px;
+              cursor: pointer;
+            ">Reset Password</button>
+          </a>
+
+          <p>Or, copy and paste the following link into your browser:</p>
+          <p><a href="${resetLink}" style="color: #007bff;">${resetLink}</a></p>
         `,
       },
       {
@@ -233,7 +246,7 @@ export const successfullylogin = async (email) => {
 export const sendOTPEmail = async (name, email, otp) => {
   try {
     const { BREVO_API, BREVO_EMAIL, BERVO_NAME, BREVO_API_KEY } = process.env;
-   
+
     if (!BREVO_API || !BREVO_EMAIL || !BERVO_NAME || !BREVO_API_KEY) {
       throw new Error("Missing Brevo configuration in environment variables");
     }
@@ -249,7 +262,7 @@ export const sendOTPEmail = async (name, email, otp) => {
         </body>
       </html>
     `;
-   
+
     const response = await axios.post(
       BREVO_API,
       {
@@ -265,7 +278,7 @@ export const sendOTPEmail = async (name, email, otp) => {
         },
       }
     );
-   
+
     return { success: true, message: "OTP email sent successfully" };
   } catch (error) {
     // console.error("Error sending OTP email:", error);
